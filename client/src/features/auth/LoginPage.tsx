@@ -1,0 +1,145 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Truck } from "lucide-react";
+import { useAuth } from "./AuthContext";
+
+const DEMO = [
+  { label: "Fleet Manager", email: "fleet@transitops.com" },
+  { label: "Driver", email: "driver@transitops.com" },
+  { label: "Safety Officer", email: "safety@transitops.com" },
+  { label: "Financial Analyst", email: "finance@transitops.com" },
+];
+
+export function LoginPage() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("fleet@transitops.com");
+  const [password, setPassword] = useState("password");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await login(email, password);
+      navigate("/");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-appbg px-4 relative overflow-hidden">
+      {/* Soft ambient background glow — the kind of subtle detail premium SaaS login pages have */}
+      <motion.div
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl"
+        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl"
+        animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="w-full max-w-md relative z-10">
+        <motion.div
+          className="flex items-center justify-center gap-2 mb-6"
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <motion.div
+            initial={{ rotate: -20, scale: 0.7 }}
+            animate={{ rotate: 0, scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+          >
+            <Truck className="text-primary" size={32} />
+          </motion.div>
+          <span className="text-2xl font-bold text-text-primary">TransitOps</span>
+        </motion.div>
+
+        <motion.form
+          onSubmit={submit}
+          className="card space-y-4"
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+        >
+          <div>
+            <h1 className="text-xl font-bold text-text-primary">Sign in</h1>
+            <p className="text-sm text-text-secondary mt-1">Smart Transport Operations Platform</p>
+          </div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="rounded-btn bg-danger/10 text-danger text-sm px-3 py-2"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <div>
+            <label className="label">Email</label>
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="label">Password</label>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <motion.button
+            className="btn-primary w-full"
+            disabled={loading}
+            whileHover={{ scale: loading ? 1 : 1.01 }}
+            whileTap={{ scale: loading ? 1 : 0.98 }}
+          >
+            {loading ? (
+              <motion.span
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              >
+                Signing in...
+              </motion.span>
+            ) : (
+              "Sign in"
+            )}
+          </motion.button>
+
+          <div className="pt-2 border-t border-appborder">
+            <p className="text-xs text-text-secondary mb-2">Demo accounts (password: password)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DEMO.map((d, i) => (
+                <motion.button
+                  key={d.email}
+                  type="button"
+                  onClick={() => setEmail(d.email)}
+                  className="text-xs rounded-btn border border-appborder px-2 py-1.5 text-text-secondary hover:bg-appbg hover:text-text-primary"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + i * 0.05, duration: 0.25 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {d.label}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </motion.form>
+      </div>
+    </div>
+  );
+}

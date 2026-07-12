@@ -1,0 +1,124 @@
+// TransitOps schema — all 8 entities. Owner: Yash.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique // FleetManager | Driver | SafetyOfficer | FinancialAnalyst
+  users User[]
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  name         String
+  email        String @unique
+  passwordHash String
+  roleId       Int
+  role         Role   @relation(fields: [roleId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Vehicle {
+  id              Int     @id @default(autoincrement())
+  regNumber       String  @unique
+  name            String
+  type            String
+  maxLoadKg       Float
+  odometer        Float   @default(0)
+  acquisitionCost Float   @default(0)
+  region          String  @default("")
+  status          String  @default("Available") // Available | OnTrip | InShop | Retired
+  fuelLevel       Float   @default(0) // current fuel in tank, liters
+  fuelCapacity    Float   @default(100) // tank capacity, liters
+  fuelEfficiencyKmpl Float @default(8) // km per liter, used to estimate fuel needed for a trip
+  createdAt       DateTime @default(now())
+
+  trips        Trip[]
+  maintenances Maintenance[]
+  fuelLogs     FuelLog[]
+  expenses     Expense[]
+  documents    VehicleDocument[]
+}
+
+// Bonus feature: vehicle document management (registration, insurance, permits...)
+model VehicleDocument {
+  id         Int       @id @default(autoincrement())
+  vehicleId  Int
+  name       String
+  docType    String // Registration | Insurance | Permit | Other
+  expiryDate DateTime?
+  notes      String    @default("")
+  createdAt  DateTime  @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+}
+
+model Driver {
+  id              Int      @id @default(autoincrement())
+  name            String
+  licenseNumber   String   @unique
+  licenseCategory String
+  licenseExpiry   DateTime
+  contact         String
+  safetyScore     Float    @default(100)
+  status          String   @default("Available") // Available | OnTrip | OffDuty | Suspended
+  createdAt       DateTime @default(now())
+
+  trips Trip[]
+}
+
+model Trip {
+  id              Int      @id @default(autoincrement())
+  source          String
+  destination     String
+  vehicleId       Int
+  driverId        Int
+  cargoWeight     Float
+  plannedDistance Float
+  finalOdometer   Float?
+  fuelConsumed    Float?
+  revenue         Float?
+  status          String   @default("Draft") // Draft | Dispatched | Completed | Cancelled
+  createdAt       DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  driver  Driver  @relation(fields: [driverId], references: [id])
+}
+
+model Maintenance {
+  id        Int      @id @default(autoincrement())
+  vehicleId Int
+  type      String
+  cost      Float    @default(0)
+  date      DateTime @default(now())
+  notes     String   @default("")
+  isActive  Boolean  @default(true)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+}
+
+model FuelLog {
+  id        Int      @id @default(autoincrement())
+  vehicleId Int
+  liters    Float
+  cost      Float
+  date      DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  vehicleId Int
+  type      String // toll | maintenance | other
+  amount    Float
+  date      DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+}
