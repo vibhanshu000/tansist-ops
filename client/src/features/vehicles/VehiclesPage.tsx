@@ -13,6 +13,8 @@ import { AnimatedRow } from "../../components/ui/AnimatedRow";
 import { useSort } from "../../lib/useSort";
 import { useToast } from "../../components/ui/ToastContext";
 import { useConfirm } from "../../components/ui/ConfirmDialog";
+import { useAuth } from "../auth/AuthContext";
+import { canEdit } from "../auth/roleAccess";
 
 const STATUSES = ["Available", "OnTrip", "InShop", "Retired"];
 const empty = {
@@ -31,6 +33,8 @@ export function VehiclesPage() {
   const [error, setError] = useState("");
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const editable = user ? canEdit("/vehicles", user.role) : false;
   const { sorted, sortKey, sortDir, toggleSort } = useSort<Vehicle>(vehicles, "regNumber");
 
   async function load() {
@@ -105,9 +109,11 @@ export function VehiclesPage() {
         title="Vehicle Registry"
         subtitle="Master list of fleet vehicles"
         action={
-          <button className="btn-primary" onClick={openCreate}>
-            <Plus size={16} /> Add Vehicle
-          </button>
+          editable ? (
+            <button className="btn-primary" onClick={openCreate}>
+              <Plus size={16} /> Add Vehicle
+            </button>
+          ) : undefined
         }
       />
 
@@ -133,7 +139,7 @@ export function VehiclesPage() {
           <EmptyState
             icon={<Truck size={40} />}
             message="No vehicles yet"
-            action={<button className="btn-primary" onClick={openCreate}><Plus size={16} /> Add Vehicle</button>}
+            action={editable ? <button className="btn-primary" onClick={openCreate}><Plus size={16} /> Add Vehicle</button> : undefined}
           />
         ) : (
           <table className="w-full">
@@ -148,7 +154,7 @@ export function VehiclesPage() {
                 <SortableTh label="Fuel" active={sortKey === "fuelLevel"} dir={sortDir} onClick={() => toggleSort("fuelLevel")} />
                 <th className="th">Region</th>
                 <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
-                <th className="th"></th>
+                {editable && <th className="th"></th>}
               </tr>
             </thead>
             <tbody>
@@ -166,12 +172,14 @@ export function VehiclesPage() {
                   <td className={`td font-medium ${fuelTone}`}>{v.fuelLevel.toFixed(0)}/{v.fuelCapacity.toFixed(0)}L ({pct}%)</td>
                   <td className="td">{v.region || "-"}</td>
                   <td className="td"><StatusBadge status={v.status} /></td>
-                  <td className="td">
-                    <div className="flex gap-2">
-                      <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(v)} className="text-text-secondary hover:text-primary"><Pencil size={16} /></motion.button>
-                      <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => remove(v)} className="text-text-secondary hover:text-danger"><Trash2 size={16} /></motion.button>
-                    </div>
-                  </td>
+                  {editable && (
+                    <td className="td">
+                      <div className="flex gap-2">
+                        <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(v)} className="text-text-secondary hover:text-primary"><Pencil size={16} /></motion.button>
+                        <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => remove(v)} className="text-text-secondary hover:text-danger"><Trash2 size={16} /></motion.button>
+                      </div>
+                    </td>
+                  )}
                 </AnimatedRow>
                 );
               })}

@@ -7,8 +7,8 @@ import { requireRole } from "../../middleware/requireRole.js";
 export const fuelRouter = Router();
 export const expensesRouter = Router();
 
-// RBAC: Fleet Manager and Financial Analyst log fuel/expenses.
-const canManage = requireRole("FleetManager", "FinancialAnalyst");
+// RBAC: Financial Analyst logs fuel/expenses.
+const canManage = requireRole("FinancialAnalyst");
 
 const fuelSchema = z.object({
   vehicleId: z.number().int(),

@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { SplashScreen } from "./components/layout/SplashScreen";
 import { AuthProvider } from "./features/auth/AuthContext";
 import { ThemeProvider } from "./components/layout/ThemeContext";
 import { ToastProvider } from "./components/ui/ToastContext";
@@ -17,8 +20,22 @@ import { ReportsPage } from "./features/reports/ReportsPage";
 import { DocumentsPage } from "./features/documents/DocumentsPage";
 
 export default function App() {
+  // Show the splash once per browser session so refreshes during normal use
+  // don't replay it. Clear sessionStorage (or open a new tab) to see it again.
+  const [booting, setBooting] = useState(() => !sessionStorage.getItem("splashSeen"));
+
   return (
     <ThemeProvider>
+      <AnimatePresence>
+        {booting && (
+          <SplashScreen
+            onFinish={() => {
+              sessionStorage.setItem("splashSeen", "1");
+              setBooting(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
       <ToastProvider>
         <ConfirmProvider>
           <AuthProvider>

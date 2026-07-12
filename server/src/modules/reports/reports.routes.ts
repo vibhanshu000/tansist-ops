@@ -114,30 +114,146 @@ reportsRouter.get(
     const doc = new PDFDocument({ margin: 40, size: "A4" });
     doc.pipe(res);
 
-    doc.fontSize(20).fillColor("#4F46E5").text("TransitOps — Fleet Report", { align: "left" });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor("#64748B").text(`Generated ${new Date().toLocaleString()}`);
-    doc.moveDown(1);
+    const PAGE_LEFT = 40;
+    const PAGE_RIGHT = doc.page.width - 40; // 555.28 on A4
+    const CONTENT_WIDTH = PAGE_RIGHT - PAGE_LEFT;
+    const ROW_HEIGHT = 22;
+    const HEADER_HEIGHT = 24;
+    const PAGE_BOTTOM = doc.page.height - 50;
+    const CELL_PAD = 6;
 
-    const colX = [40, 110, 190, 250, 320, 390, 460];
-    const headers = ["Vehicle", "Distance", "Fuel(L)", "Efficiency", "Op.Cost", "Revenue", "ROI"];
-    doc.fontSize(9).fillColor("#0F172A");
-    headers.forEach((h, i) => doc.text(h, colX[i], doc.y, { continued: false, width: 80 }));
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(560, doc.y).strokeColor("#E2E8F0").stroke();
-    doc.moveDown(0.3);
+    const nf = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+    const fmt = (n: number) => nf.format(n ?? 0);
+    const money = (n: number) => `Rs. ${nf.format(n ?? 0)}`; // pdfkit's default font lacks the ₹ glyph
 
-    for (const r of rows) {
-      const y = doc.y;
-      doc.fontSize(9).fillColor("#0F172A");
-      doc.text(r.regNumber, colX[0], y, { width: 65 });
-      doc.text(`${r.totalDistance} km`, colX[1], y, { width: 70 });
-      doc.text(`${r.totalFuelLiters}`, colX[2], y, { width: 55 });
-      doc.text(`${r.fuelEfficiency}`, colX[3], y, { width: 65 });
-      doc.text(`Rs.${r.operationalCost}`, colX[4], y, { width: 65 });
-      doc.text(`Rs.${r.revenue}`, colX[5], y, { width: 65 });
-      doc.fillColor(r.roi >= 0 ? "#16A34A" : "#DC2626").text(`${r.roi}`, colX[6], y, { width: 60 });
-      doc.moveDown(0.6);
+    // Column definitions. Widths sum to CONTENT_WIDTH (515) so the table fills
+    // the page cleanly; x positions are derived once below.
+    type Align = "left" | "right";
+    interface Col {
+      key: string;
+      label: string;
+      width: number;
+      align: Align;
+      x: number;
+    }
+    const columns: Col[] = [
+      { key: "vehicle", label: "Vehicle", width: 90, align: "left", x: 0 },
+      { key: "distance", label: "Distance", width: 70, align: "right", x: 0 },
+      { key: "fuel", label: "Fuel (L)", width: 60, align: "right", x: 0 },
+      { key: "efficiency", label: "Efficiency", width: 75, align: "right", x: 0 },
+      { key: "opcost", label: "Op. Cost", width: 80, align: "right", x: 0 },
+      { key: "revenue", label: "Revenue", width: 80, align: "right", x: 0 },
+      { key: "roi", label: "ROI", width: 60, align: "right", x: 0 },
+    ];
+    let cursorX = PAGE_LEFT;
+    for (const c of columns) {
+      c.x = cursorX;
+      cursorX += c.width;
+    }
+
+    function drawRow(rowY: number, cells: Record<string, string>, opts: { header?: boolean; roi?: number } = {}) {
+      if (opts.header) {
+        doc.rect(PAGE_LEFT, rowY, CONTENT_WIDTH, HEADER_HEIGHT).fill("#4F46E5");
+      }
+      const textY = rowY + (opts.header ? 8 : 7);
+      for (const c of columns) {
+        if (opts.header) {
+          doc.font("Helvetica-Bold").fontSize(9).fillColor("#FFFFFF");
+        } else if (c.key === "roi" && opts.roi !== undefined) {
+          doc.font("Helvetica").fontSize(9).fillColor(opts.roi >= 0 ? "#16A34A" : "#DC2626");
+        } else if (c.key === "vehicle") {
+          doc.font("Helvetica-Bold").fontSize(9).fillColor("#0F172A");
+        } else {
+          doc.font("Helvetica").fontSize(9).fillColor("#334155");
+        }
+        doc.text(cells[c.key] ?? "", c.x + CELL_PAD, textY, {
+          width: c.width - CELL_PAD * 2,
+          align: c.align,
+          lineBreak: false,
+        });
+      }
+    }
+
+    // Title
+    doc.font("Helvetica-Bold").fontSize(20).fillColor("#4F46E5").text("TransitOps — Fleet Report", PAGE_LEFT, 40);
+    doc.font("Helvetica").fontSize(10).fillColor("#64748B").text(`Generated ${new Date().toLocaleString("en-IN")}`);
+
+    let y = doc.y + 14;
+
+    // Header
+    const headerCells: Record<string, string> = Object.fromEntries(columns.map((c) => [c.key, c.label]));
+    drawRow(y, headerCells, { header: true });
+    y += HEADER_HEIGHT;
+
+    if (rows.length === 0) {
+      doc.font("Helvetica").fontSize(10).fillColor("#64748B").text("No vehicle data available.", PAGE_LEFT, y + 8);
+    }
+
+    const totals = { distance: 0, fuel: 0, opcost: 0, revenue: 0 };
+
+    rows.forEach((r, i) => {
+      // Page break: start a fresh page and repeat the header.
+      if (y + ROW_HEIGHT > PAGE_BOTTOM) {
+        doc.addPage();
+        y = 40;
+        drawRow(y, headerCells, { header: true });
+        y += HEADER_HEIGHT;
+      }
+
+      // Zebra striping for readability.
+      if (i % 2 === 1) {
+        doc.rect(PAGE_LEFT, y, CONTENT_WIDTH, ROW_HEIGHT).fill("#F1F5F9");
+      }
+
+      drawRow(
+        y,
+        {
+          vehicle: r.regNumber,
+          distance: `${fmt(r.totalDistance)} km`,
+          fuel: fmt(r.totalFuelLiters),
+          efficiency: r.fuelEfficiency ? `${fmt(r.fuelEfficiency)}` : "-",
+          opcost: money(r.operationalCost),
+          revenue: money(r.revenue),
+          roi: `${r.roi}`,
+        },
+        { roi: r.roi }
+      );
+
+      // Row separator line.
+      doc.moveTo(PAGE_LEFT, y + ROW_HEIGHT).lineTo(PAGE_RIGHT, y + ROW_HEIGHT).lineWidth(0.5).strokeColor("#E2E8F0").stroke();
+
+      totals.distance += r.totalDistance;
+      totals.fuel += r.totalFuelLiters;
+      totals.opcost += r.operationalCost;
+      totals.revenue += r.revenue;
+      y += ROW_HEIGHT;
+    });
+
+    // Totals row.
+    if (rows.length > 0) {
+      if (y + ROW_HEIGHT > PAGE_BOTTOM) {
+        doc.addPage();
+        y = 40;
+      }
+      doc.rect(PAGE_LEFT, y, CONTENT_WIDTH, ROW_HEIGHT).fill("#E0E7FF");
+      const textY = y + 7;
+      const totalCells: Record<string, string> = {
+        vehicle: "TOTAL",
+        distance: `${fmt(totals.distance)} km`,
+        fuel: fmt(totals.fuel),
+        efficiency: "",
+        opcost: money(totals.opcost),
+        revenue: money(totals.revenue),
+        roi: "",
+      };
+      for (const c of columns) {
+        doc.font("Helvetica-Bold").fontSize(9).fillColor("#3730A3");
+        doc.text(totalCells[c.key] ?? "", c.x + CELL_PAD, textY, {
+          width: c.width - CELL_PAD * 2,
+          align: c.align,
+          lineBreak: false,
+        });
+      }
     }
 
     doc.end();

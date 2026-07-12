@@ -7,8 +7,8 @@ import { requireRole } from "../../middleware/requireRole.js";
 
 export const tripsRouter = Router();
 
-// RBAC: Fleet Manager and Driver create/dispatch/complete/cancel trips.
-const canManage = requireRole("FleetManager", "Driver");
+// RBAC: Drivers create/dispatch/complete/cancel trips. Safety Officers view only.
+const canManage = requireRole("Driver");
 
 const createSchema = z.object({
   source: z.string().min(1),

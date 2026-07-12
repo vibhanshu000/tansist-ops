@@ -1,21 +1,46 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiPost } from "../../lib/api";
+import { apiGet, apiPost } from "../../lib/api";
 import type { User } from "../../lib/types";
 
 interface AuthState {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
+function readStoredUser(): User | null {
+  try {
     const stored = localStorage.getItem("user");
-    if (stored) setUser(JSON.parse(stored));
+    return stored ? (JSON.parse(stored) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // Initialise synchronously from localStorage so a page refresh keeps the
+  // session on the very first render (prevents ProtectedRoute from bouncing
+  // an authenticated user to /login before an effect can run).
+  const [user, setUser] = useState<User | null>(readStoredUser);
+
+  // Validate the stored token against the server on load. If it's expired or
+  // invalid the API returns 401 (which clears the token), so we drop the user.
+  // Network/other errors are ignored so a temporary outage doesn't log you out.
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    apiGet<{ user: User }>("/auth/me")
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        }
+      })
+      .catch(() => {
+        if (!localStorage.getItem("token")) setUser(null);
+      });
   }, []);
 
   async function login(email: string, password: string) {
@@ -23,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     setUser(data.user);
+    return data.user;
   }
 
   function logout() {

@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { ChatWidget } from "../../features/assistant/ChatWidget";
 
 export function AppShell() {
   const location = useLocation();
@@ -27,6 +28,7 @@ export function AppShell() {
           </div>
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { TableSkeleton } from "../../components/ui/Skeleton";
 import { AnimatedRow } from "../../components/ui/AnimatedRow";
 import { useToast } from "../../components/ui/ToastContext";
 import { useConfirm } from "../../components/ui/ConfirmDialog";
+import { useAuth } from "../auth/AuthContext";
+import { canEdit } from "../auth/roleAccess";
 
 const TRIP_STATUSES = ["Draft", "Dispatched", "Completed", "Cancelled"];
 const emptyTrip = { source: "", destination: "", vehicleId: "", driverId: "", cargoWeight: 0, plannedDistance: 0 };
@@ -26,6 +28,8 @@ export function TripsPage() {
   const [error, setError] = useState("");
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const editable = user ? canEdit("/trips", user.role) : false;
 
   // complete modal
   const [completeTrip, setCompleteTrip] = useState<Trip | null>(null);
@@ -158,7 +162,7 @@ export function TripsPage() {
       <PageHeader
         title="Trip Management"
         subtitle="Dispatch, monitor and complete trips"
-        action={<button className="btn-primary" onClick={openCreate}><Plus size={16} /> Create Trip</button>}
+        action={editable ? <button className="btn-primary" onClick={openCreate}><Plus size={16} /> Create Trip</button> : undefined}
       />
 
       <motion.div className="flex gap-3 mb-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
@@ -174,7 +178,7 @@ export function TripsPage() {
           <TableSkeleton cols={8} />
         ) : visibleTrips.length === 0 ? (
           <EmptyState icon={<MapPin size={40} />} message="No trips yet"
-            action={<button className="btn-primary" onClick={openCreate}><Plus size={16} /> Create Trip</button>} />
+            action={editable ? <button className="btn-primary" onClick={openCreate}><Plus size={16} /> Create Trip</button> : undefined} />
         ) : (
           <table className="w-full">
             <thead className="border-b border-appborder">
@@ -186,7 +190,7 @@ export function TripsPage() {
                 <th className="th">Cargo</th>
                 <th className="th">Distance</th>
                 <th className="th">Status</th>
-                <th className="th">Actions</th>
+                {editable && <th className="th">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -199,19 +203,21 @@ export function TripsPage() {
                   <td className="td">{t.cargoWeight} kg</td>
                   <td className="td">{t.plannedDistance} km</td>
                   <td className="td"><StatusBadge status={t.status} /></td>
-                  <td className="td">
-                    <div className="flex gap-2">
-                      {t.status === "Draft" && (
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => dispatch(t.id)} className="btn-primary !py-1.5 !px-3 text-xs"><Send size={14} /> Dispatch</motion.button>
-                      )}
-                      {t.status === "Dispatched" && (
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => openComplete(t)} className="btn-primary !py-1.5 !px-3 text-xs"><CheckCircle size={14} /> Complete</motion.button>
-                      )}
-                      {(t.status === "Draft" || t.status === "Dispatched") && (
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => cancel(t.id)} className="btn-secondary !py-1.5 !px-3 text-xs"><XCircle size={14} /> Cancel</motion.button>
-                      )}
-                    </div>
-                  </td>
+                  {editable && (
+                    <td className="td">
+                      <div className="flex gap-2">
+                        {t.status === "Draft" && (
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => dispatch(t.id)} className="btn-primary !py-1.5 !px-3 text-xs"><Send size={14} /> Dispatch</motion.button>
+                        )}
+                        {t.status === "Dispatched" && (
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => openComplete(t)} className="btn-primary !py-1.5 !px-3 text-xs"><CheckCircle size={14} /> Complete</motion.button>
+                        )}
+                        {(t.status === "Draft" || t.status === "Dispatched") && (
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => cancel(t.id)} className="btn-secondary !py-1.5 !px-3 text-xs"><XCircle size={14} /> Cancel</motion.button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </AnimatedRow>
               ))}
             </tbody>

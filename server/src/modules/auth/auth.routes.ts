@@ -9,7 +9,7 @@ export const authRouter = Router();
 const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(4),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.string().min(1),
 });
 

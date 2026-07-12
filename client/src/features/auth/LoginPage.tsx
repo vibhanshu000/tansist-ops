@@ -3,19 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Truck } from "lucide-react";
 import { useAuth } from "./AuthContext";
-
-const DEMO = [
-  { label: "Fleet Manager", email: "fleet@transitops.com" },
-  { label: "Driver", email: "driver@transitops.com" },
-  { label: "Safety Officer", email: "safety@transitops.com" },
-  { label: "Financial Analyst", email: "finance@transitops.com" },
-];
+import { landingPathForRole } from "./roleAccess";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("fleet@transitops.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +18,10 @@ export function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/");
+      // The signed-in user's role (derived from their account/email) decides
+      // where they land — e.g. a Driver goes straight to the trips board.
+      const user = await login(email, password);
+      navigate(landingPathForRole(user.role), { replace: true });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -117,27 +113,6 @@ export function LoginPage() {
               "Sign in"
             )}
           </motion.button>
-
-          <div className="pt-2 border-t border-appborder">
-            <p className="text-xs text-text-secondary mb-2">Demo accounts (password: password)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO.map((d, i) => (
-                <motion.button
-                  key={d.email}
-                  type="button"
-                  onClick={() => setEmail(d.email)}
-                  className="text-xs rounded-btn border border-appborder px-2 py-1.5 text-text-secondary hover:bg-appbg hover:text-text-primary"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + i * 0.05, duration: 0.25 }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  {d.label}
-                </motion.button>
-              ))}
-            </div>
-          </div>
         </motion.form>
       </div>
     </div>

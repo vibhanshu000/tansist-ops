@@ -6,8 +6,8 @@ import { requireRole } from "../../middleware/requireRole.js";
 
 export const documentsRouter = Router();
 
-// RBAC: Fleet Manager manages vehicle documents; Safety Officer can also add (compliance docs).
-const canManage = requireRole("FleetManager", "SafetyOfficer");
+// RBAC: Fleet Manager manages vehicle documents.
+const canManage = requireRole("FleetManager");
 
 const docSchema = z.object({
   vehicleId: z.number().int(),
